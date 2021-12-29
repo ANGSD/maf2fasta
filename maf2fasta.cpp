@@ -1,12 +1,14 @@
 /*
   This is a program to get monkey refs from multizXway datasets
+  thorfinn.sand@gmail.com 29dec 2021
+*/
 
- */
-
-#include <iostream>
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
+#include <cassert>
+#include <zlib.h>
+
 #define LENS 100000
 
 char **input_data = (char **)malloc(2*sizeof(char*));
@@ -14,35 +16,39 @@ char **data = (char **)malloc(2*sizeof(char*));
 char *table=NULL;
 int startPos = 0;
 
-const char *hg18 = "hg19";
+const char *hg18 = "hg38";
 const char *panTro2 = "panTro2";
-
-const char *delims = ". \n";
-
+const char *delims = ". \n\t";
 const char *chr = NULL;
 
 int getRefLen (const char *fname){
-  FILE *fp = fopen(fname,"r");
+  gzFile fp = Z_NULL;
+  fp = gzopen(fname,"r");
+  assert(fp!=Z_NULL);
   char buf[LENS];
   int pos =0;
-  while(fgets(buf,LENS,fp)) {
+  int retval = -1;
+  while(gzgets(fp,buf,LENS)) {
     pos++;
     if(buf[0]=='#'|| buf[0]=='a')
       continue;
     char *tok = strtok(buf,delims);
-
     tok = strtok(NULL,delims);
+    if(!tok)
+      break;
     if(!strcmp(hg18,tok)){//its a hg18 sequence
       chr = strdup(strtok(NULL,delims));
       for(int i=0;i<4;i++)
 	tok= strtok(NULL,delims);
-      fclose(fp);
+      gzclose(fp);
       return atoi(tok);
     }else{
       continue;
 
     }
   }
+  if(fp!=Z_NULL)
+    gzclose(fp);
   return -1;
 }
 
@@ -56,32 +62,8 @@ int getId(const char*id){
 }
 
 
-
-void mergingOceanOld(int startRead){
-  
-  for(int j=0;j<2;j++)
-    if(input_data[j]!=NULL) {//only if we have data{
-      int gap =0;
-      for(uint i=0;i<strlen(input_data[j]);i++){
-	char v = input_data[j][i];
-	if(v!='a'&& v!='c'&&v!='g'&&v!='t'){
-	  if(v=='-'){
-	    gap++;
-	    //	    fprintf(stderr,"gap is: %d\n",gap);
-	    //exit(0);
-	  }else
-	    data[j][startRead+i+1-gap] = input_data[j][i];//DRAGON maybe not offsetting
-	}
-      }
-    }
-  for(int i=0;i<2;i++)
-    if(input_data[i]!=NULL){
-      free(input_data[i]);
-      input_data[i]=NULL;
-    }
-
-}
 void mergingOcean(int startRead){
+  fprintf(stderr,"[%s] \n",__FUNCTION__);
   if(input_data[0]==NULL)
     fprintf(stderr,"shit happens\n");
 
@@ -148,6 +130,7 @@ void setTable(){
 int main(int argc,char**argv){
   setTable();//generate a lookup table for a->A etc.
   int refLen = getRefLen(argv[1]);
+  assert(refLen>0);
   fprintf(stderr,"%s: Length of reference: %d\n",chr,refLen);
   for(int i=0;i<2;i++){
     data[i] =myClearAlloc(refLen);
@@ -167,24 +150,22 @@ int main(int argc,char**argv){
       continue;
     }
     if(buf[0]=='s'){
-
-
-    char *tok = strtok(buf,delims);//this is now ''s
-    int id = getId(strtok(NULL,delims));
-    if(id==-1)
-      continue;
-    strtok(NULL,delims);//this is now chrID we dont use this
-    tok = strtok(NULL,delims); //this is startpostions only using this if hg18 sequence
-    if(id==0){
-      startRead = atoi(tok);
-      fprintf(sfp,"%d\n",startRead);
-      fflush(sfp);
-    }
-    //fflush(stdout);
-    for(int i=0;i<3;i++)
-      tok = strtok(NULL,delims);
-
-    input_data[id] = strdup(strtok(NULL,delims));
+      char *tok = strtok(buf,delims);//this is now ''s
+      int id = getId(strtok(NULL,delims));
+      if(id==-1)
+	continue;
+      strtok(NULL,delims);//this is now chrID we dont use this
+      tok = strtok(NULL,delims); //this is startpostions only using this if hg18 sequence
+      if(id==0){
+	startRead = atoi(tok);
+	fprintf(sfp,"%d\n",startRead);
+	fflush(sfp);
+      }
+      //fflush(stdout);
+      for(int i=0;i<3;i++)
+	tok = strtok(NULL,delims);
+      
+      input_data[id] = strdup(strtok(NULL,delims));
     }
   }  
   // fprintf(stderr,"after main loop nlines: %d processed\n",pos);
