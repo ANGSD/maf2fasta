@@ -10,16 +10,18 @@
 #include <zlib.h>
 
 #define LENS 100000
+#define NREFS 4
+const char* refs[NREFS] = {"hg38","panTro4","ponAbe2","rheMac3"};
 
-char **input_data = (char **)malloc(2*sizeof(char*));
-char **data = (char **)malloc(2*sizeof(char*));
+char **input_data = (char **)malloc(NREFS*sizeof(char*));
+char **data = (char **)malloc(NREFS*sizeof(char*));
 char *table=NULL;
 int startPos = 0;
 
-const char *hg18 = "hg38";
-const char *panTro2 = "panTro4";
+
+
 const char *delims = ". \n\t";
-const char *chr = NULL;
+char *chr = NULL;
 
 int getRefLen (const char *fname){
   gzFile fp = Z_NULL;
@@ -36,8 +38,9 @@ int getRefLen (const char *fname){
     tok = strtok(NULL,delims);
     if(!tok)
       break;
-    if(!strcmp(hg18,tok)){//its a hg18 sequence
+    if(!strcmp(refs[0],tok)){//its a reference sequence
       chr = strdup(strtok(NULL,delims));
+      //loop below is not reference but discarding whitespaces
       for(int i=0;i<4;i++)
 	tok= strtok(NULL,delims);
       gzclose(fp);
@@ -53,53 +56,37 @@ int getRefLen (const char *fname){
 }
 
 int getId(const char*id){
-  if(!strcmp(hg18,id))
-    return 0;
-  else if(!strcmp(panTro2,id))
-    return 1;
-  else
-    return -1;
+  int ret =-1;
+  for(int i=0;i<NREFS;i++)
+    if(strcmp(refs[i],id)==0)
+      ret=i;
+  return ret;
 }
 
 
 void mergingOcean(int startRead){
-  if(input_data[0]==NULL)
-    fprintf(stderr,"shit happens\n");
+  assert(input_data[0]!=NULL);
 
-  if(input_data[1]==NULL){//the case of no abe sequence
+  for(int j=0;j<NREFS;j++){
+    if(input_data[j]==NULL)
+      continue;
     int gap =0;
-    for(uint i=0;i<strlen(input_data[0]);i++){
-      char v = input_data[0][i];
-      // if(v!='a'&& v!='c'&&v!='g'&&v!='t'){
-	if(v=='-'){
-	  gap++;
-	  //	  fprintf(stderr,"gap is: %d\n",gap);
-	}else
-	  data[0][startRead+i-gap] = table[input_data[0][i]];//DRAGON maybe not offsetting
-	//}
-    }
-  }
-  else{//we have a abe sequence
-    int gap =0;
-    for(uint i=0;i<strlen(input_data[0]);i++){
+    for(uint i=0;i<strlen(input_data[j]);i++){
       char v = input_data[0][i];
       // if(v!='a'&& v!='c'&&v!='g'&&v!='t'){
       if(v=='-'){
 	gap++;
 	//	fprintf(stderr,"gap is: %d\n",gap);}
       }else
-	for(int j=0;j<2;j++)
-	  data[j][startRead+i-gap] = table[input_data[j][i]];//DRAGON maybe not offsetting
+	data[j][startRead+i-gap] = table[input_data[j][i]];//DRAGON maybe not offsetting
     }
-    //}      
   }
 
-  for(int i=0;i<2;i++)
+  for(int i=0;i<NREFS;i++)
     if(input_data[i]!=NULL){
       free(input_data[i]);
       input_data[i]=NULL;
     }
-
 }
 
 char *myClearAlloc(int i){
@@ -109,7 +96,6 @@ char *myClearAlloc(int i){
 
   return ret;
 }
-FILE *sfp = fopen("start","w");
 
 void setTable(){
   table =(char *) calloc(130,1);
@@ -131,7 +117,7 @@ int main(int argc,char**argv){
   int refLen = getRefLen(argv[1]);
   assert(refLen>0);
   fprintf(stderr,"%s: Length of reference: %d\n",chr,refLen);
-  for(int i=0;i<2;i++){
+  for(int i=0;i<NREFS;i++){
     data[i] =myClearAlloc(refLen);
     input_data[i]=NULL;
   }
@@ -156,26 +142,35 @@ int main(int argc,char**argv){
 	continue;
       strtok(NULL,delims);//this is now chrID we dont use this
       tok = strtok(NULL,delims); //this is startpostions only using this if hg18 sequence
-      if(id==0){
+      if(id==0)
 	startRead = atoi(tok);
-	fprintf(sfp,"%d\n",startRead);
-	fflush(sfp);
-      }
-      //fflush(stdout);
-      for(int i=0;i<3;i++)
+
+      //loop below is not refs but discarding whitespaces
+      for(int i=0;i<4;i++)
 	tok = strtok(NULL,delims);
-      
-      input_data[id] = strdup(strtok(NULL,delims));
+      input_data[id] = strdup(tok);
     }
   }  
   // fprintf(stderr,"after main loop nlines: %d processed\n",pos);
-  for(int i=0;i<refLen;i++)
-    fprintf(stdout,"%s\t%d\t%c\t%c\n",chr,i+1,data[0][i],data[1][i]);
+  fprintf(stdout,"Chromosome\tPosition");
+  for(int i=0;i<NREFS;i++)
+    fprintf(stdout,"\t%s",refs[i]);
+  fprintf(stdout,"\n");
+  for(int i=0;i<refLen;i++){
+    fprintf(stdout,"%s\t%d",chr,i+1);
+    for(int h=0;h<NREFS;h++)
+      fprintf(stdout,"\t%c",data[h][i]);
+    fprintf(stdout,"\n");
+  }
 
   //cleanup
   gzclose(fp);
-  for(int i=0;i<2;i++)
+  for(int i=0;i<NREFS;i++)
     free(data[i]);
   free(data);
   free(input_data);
+  if(chr)
+    free(chr);
+  if(table)
+    free(table);
 }
