@@ -1,3 +1,4 @@
+<pre>
 rsync -avz --progress         rsync://hgdownload.cse.ucsc.edu/goldenPath/hg19/multiz46way/maf ./
 
 for i in *.md5;do md5sum -c $i;done
@@ -10,3 +11,4 @@ for i in `ls chr*.maf.gz|grep -v chrUn|grep -v random|grep -v hap`;do newname=`b
 ls maf/used/*.maf|xargs -P 2 -n1 -I infile sh -c './a.out infile |gzip -c >maf/info/`basename infile`.info.gz'
 
 rm -rf used
+</pre>
