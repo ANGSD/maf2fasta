@@ -137,13 +137,14 @@ int main(int argc,char**argv){
     input_data[i]=NULL;
   }
   
-  FILE *fp = fopen(argv[1],"r");
+  gzFile fp = Z_NULL;
+  fp=gzopen(argv[1],"r");
+  assert(fp!=Z_NULL);
   char buf[LENS];
   int pos =0;
   int startRead =0;
 
-  while(fgets(buf,LENS,fp)) {
-    //    fprintf(stderr,"pso: %d\n",pos);
+  while(gzgets(fp,buf,LENS)) {
     pos++;
     if(strlen(buf)==1){
       mergingOcean(startRead);
@@ -173,7 +174,7 @@ int main(int argc,char**argv){
     fprintf(stdout,"%s\t%d\t%c\t%c\n",chr,i+1,data[0][i],data[1][i]);
 
   //cleanup
-  fclose(fp);
+  gzclose(fp);
   for(int i=0;i<2;i++)
     free(data[i]);
   free(data);
