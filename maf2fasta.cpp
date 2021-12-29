@@ -17,7 +17,7 @@ char *table=NULL;
 int startPos = 0;
 
 const char *hg18 = "hg38";
-const char *panTro2 = "panTro2";
+const char *panTro2 = "panTro4";
 const char *delims = ". \n\t";
 const char *chr = NULL;
 
@@ -63,7 +63,6 @@ int getId(const char*id){
 
 
 void mergingOcean(int startRead){
-  fprintf(stderr,"[%s] \n",__FUNCTION__);
   if(input_data[0]==NULL)
     fprintf(stderr,"shit happens\n");
 
